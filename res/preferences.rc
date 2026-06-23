@@ -1,0 +1,21 @@
+#include <windows.h>
+#include "../src/resource.h"
+
+// Child dialog embedded in the foobar2000 preferences pane (DS_CONTROL | WS_CHILD).
+IDD_PREFERENCES DIALOGEX 0, 0, 300, 134
+STYLE DS_SETFONT | DS_CONTROL | WS_CHILD
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    GROUPBOX        "Detection mode", IDC_GROUP_MODE, 7, 7, 286, 50
+    CONTROL         "Automatic (BOM / UTF-8, then legacy fallback)",
+                    IDC_MODE_AUTOMATIC, "Button", BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 14, 20, 272, 18
+    CONTROL         "Force selected encoding (decode every CUE with the encoding below)",
+                    IDC_MODE_FORCE, "Button", BS_AUTORADIOBUTTON, 14, 40, 272, 10
+
+    GROUPBOX        "Legacy fallback encoding", IDC_GROUP_LEGACY, 7, 63, 286, 38
+    LTEXT           "Encoding:", IDC_STATIC_LEGACY, 14, 80, 40, 10
+    COMBOBOX        IDC_LEGACY_ENCODING, 58, 78, 150, 80, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+
+    CONTROL         "Log encoding decisions to the foobar2000 Console", IDC_LOG, "Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP, 7, 110, 286, 10
+END

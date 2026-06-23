@@ -1,0 +1,13 @@
+option(
+  'sdk_path',
+  type: 'string',
+  value: 'wrap',
+  description: 'Path to the extracted foobar2000 SDK, or "wrap" to use subprojects/fb2k-sdk.wrap',
+)
+
+option(
+  'build_component',
+  type: 'boolean',
+  value: true,
+  description: 'Build the foobar2000 component DLL (requires the SDK). Disable to build/run only the SDK-independent encoding unit tests.',
+)

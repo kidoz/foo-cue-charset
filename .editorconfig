@@ -8,6 +8,12 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 4
 
+[*.{cpp,hpp,h,cc,inl}]
+indent_size = 2
+
+[{meson.build,meson_options.txt}]
+indent_size = 2
+
 [*.{yaml,yml,json}]
 indent_size = 2
 

@@ -1,0 +1,13 @@
+# The foobar2000 SDK ships as a .7z archive, which Meson's wrap downloader cannot
+# extract on its own. `just sdk-wrap` downloads + extracts it with 7-Zip and copies
+# subprojects/packagefiles/fb2k-sdk/ into the extracted tree. This wrap file pins the
+# archive URL and SHA-256 for provenance and documents the source of truth.
+[wrap-file]
+directory = fb2k-sdk
+source_url = https://www.foobar2000.org/downloads/SDK-2025-03-07.7z
+source_filename = SDK-2025-03-07.7z
+source_hash = ccda3c5840e66e0e28a7e4fe36407c4e78581aa30c40c362a188fcbaae799a3e
+patch_directory = fb2k-sdk
+
+[provide]
+fb2k-sdk = fb2k_sdk_dep

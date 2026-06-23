@@ -1,0 +1,59 @@
+# The disabled checks below are inappropriate for this Win32 / byte-level foobar2000 component
+# (each is a deliberate idiom here, not a latent defect), or are unavoidable SDK-only findings:
+#  - reinterpret_cast / int-to-ptr: byte<->char span casts and Win32 DWLP_USER round-trips.
+#  - c-arrays / designated-initializers: GUID brace-init and Win32 string tables.
+#  - virtual-class-destructor / unnecessary-value-param / convert-member-functions-to-static:
+#    foobar2000 service objects and fixed input/preferences override signatures.
+#  - throwing-static-initialization / static-definition-in-anonymous-namespace: the SDK's
+#    global service-factory registration pattern.
+#  - bounds-avoid-unchecked-container-access / easily-swappable-parameters / identifier-length:
+#    noisy style checks not worth contorting this code for.
+#  - use-nodiscard / return-braced-init-list / container-contains / enum-size: opinionated style
+#    suggestions (not defects); disabling them keeps `just tidy` a meaningful correctness gate
+#    rather than a stream of stylistic noise.
+Checks: >
+  clang-analyzer-*,
+  bugprone-*,
+  cppcoreguidelines-*,
+  modernize-*,
+  performance-*,
+  readability-*,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
+  -cppcoreguidelines-pro-type-vararg,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -cppcoreguidelines-avoid-c-arrays,
+  -cppcoreguidelines-virtual-class-destructor,
+  -modernize-use-trailing-return-type,
+  -modernize-use-designated-initializers,
+  -modernize-avoid-c-arrays,
+  -performance-no-int-to-ptr,
+  -performance-unnecessary-value-param,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-throwing-static-initialization,
+  -readability-magic-numbers,
+  -readability-identifier-length,
+  -readability-convert-member-functions-to-static,
+  -readability-static-definition-in-anonymous-namespace,
+  -readability-container-contains,
+  -readability-function-cognitive-complexity,
+  -modernize-use-nodiscard,
+  -modernize-return-braced-init-list,
+  -modernize-macro-to-enum,
+  -cppcoreguidelines-macro-to-enum,
+  -performance-enum-size,
+  -cppcoreguidelines-macro-usage,
+  -cppcoreguidelines-avoid-do-while,
+  -clang-analyzer-optin.core.EnumCastOutOfRange,
+  -clang-analyzer-optin.cplusplus.VirtualCall
+# Match only this project's src/tests headers (paths are build-dir relative, "../src/...").
+# Excludes subprojects/Catch2-*/ and the vendored SDK from the analysis net.
+HeaderFilterRegex: '\.\.[/\\](src|tests)[/\\]'
+FormatStyle: file
+WarningsAsErrors: ''
+CheckOptions:
+  - key: readability-identifier-naming.NamespaceCase
+    value: lower_case
