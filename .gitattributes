@@ -1,0 +1,48 @@
+# Enforce LF line endings for this project.
+# All text files are normalized to LF on commit and checked out with LF,
+# regardless of the contributor's OS (including Windows).
+* text=auto eol=lf
+
+# Explicit text types (documentation / safety; covered by the rule above).
+*.cpp      text eol=lf
+*.hpp      text eol=lf
+*.h        text eol=lf
+*.c        text eol=lf
+*.cc       text eol=lf
+*.inl      text eol=lf
+*.rc       text eol=lf
+*.md       text eol=lf
+*.txt      text eol=lf
+*.json     text eol=lf
+*.yaml     text eol=lf
+*.yml      text eol=lf
+*.toml     text eol=lf
+*.cff      text eol=lf
+*.build    text eol=lf
+*.wrap     text eol=lf
+*.py       text eol=lf
+meson.build       text eol=lf
+meson_options.txt text eol=lf
+justfile          text eol=lf
+.clang-format     text eol=lf
+.clang-tidy       text eol=lf
+.editorconfig     text eol=lf
+.gitattributes    text eol=lf
+.gitignore        text eol=lf
+
+# Binary files: never normalize, never diff as text.
+*.dll            binary
+*.exe            binary
+*.lib            binary
+*.pdb            binary
+*.obj            binary
+*.fb2k-component binary
+*.zip            binary
+*.7z             binary
+*.png            binary
+*.ico            binary
+*.bmp            binary
+*.flac           binary
+*.wav            binary
+*.ape            binary
+*.wv             binary
