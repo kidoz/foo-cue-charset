@@ -1,6 +1,7 @@
 #include "cue_input.hpp"
 
 #include "config.hpp"
+#include "cue_sheet.hpp"
 #include "encoding/decoder.hpp"
 #include "path_util.hpp"
 #include "preferences.hpp"
@@ -90,9 +91,13 @@ constexpr const char* kAudioExtensions[] = {".flac", ".wv", ".ape", ".wav", ".mp
 // exactly one same-basename file with a different audio extension exists, returns that (logging the
 // substitution). Throws exception_io_data when several same-basename candidates exist, so we never
 // silently pick the wrong audio image. Returns empty when nothing matching exists.
-pfc::string8 find_existing_reference_variant(const pfc::string8& resolved, abort_callback& abort) {
+pfc::string8 find_existing_reference_variant(const pfc::string8& resolved, bool binary, abort_callback& abort) {
   if (file_exists(resolved, abort)) {
     return resolved;
+  }
+  // A compressed-file substitute would be interpreted as raw PCM by the binary reader.
+  if (binary) {
+    return {};
   }
 
   pfc::string8 single_match;
@@ -156,18 +161,19 @@ std::vector<std::byte> read_cue_bytes(const service_ptr_t<file>& handle, size_t 
   return out;
 }
 
-pfc::string8 resolve_reference_path(const char* raw_file, const char* cue_path, abort_callback& abort) {
+pfc::string8 resolve_reference_path(const char* raw_file, const char* cue_path, bool binary, abort_callback& abort) {
   pfc::string8 resolved;
   if (!filesystem::g_relative_path_parse(raw_file, cue_path, resolved)) {
     resolved = canonical_path(raw_file);
   }
 
-  if (pfc::string8 existing = find_existing_reference_variant(resolved, abort); !existing.is_empty()) {
+  if (pfc::string8 existing = find_existing_reference_variant(resolved, binary, abort); !existing.is_empty()) {
     return existing;
   }
 
   if (pfc::string8 explicit_relative = explicit_cue_relative_path(raw_file, cue_path); !explicit_relative.is_empty()) {
-    if (pfc::string8 existing = find_existing_reference_variant(explicit_relative, abort); !existing.is_empty()) {
+    if (pfc::string8 existing = find_existing_reference_variant(explicit_relative, binary, abort);
+        !existing.is_empty()) {
       return existing;
     }
   }
@@ -222,7 +228,7 @@ void cue_charset_input::open(service_ptr_t<file> p_filehint, const char* p_path,
   p_abort.check();
 
   const std::span<const std::byte> bytes(raw.data(), raw.size());
-  const auto decoded = encoding::decode(bytes, options);
+  const auto decoded = encoding::decode(bytes, options, [&p_abort] { p_abort.check(); });
   if (!decoded) {
     log_error(decoded.error().message.c_str());
     pfc::string8 message = "CUE Charset: ";
@@ -239,19 +245,29 @@ void cue_charset_input::open(service_ptr_t<file> p_filehint, const char* p_path,
   }
 }
 
-size_t cue_charset_input::intern_source(const char* raw_file, const char* cue_path, abort_callback& abort) {
-  const pfc::string8 resolved = resolve_reference_path(raw_file, cue_path, abort);
+size_t cue_charset_input::intern_source(const char* raw_file, const char* cue_path, bool binary,
+                                        abort_callback& abort) {
+  const pfc::string8 resolved = resolve_reference_path(raw_file, cue_path, binary, abort);
 
   for (size_t i = 0; i < m_sources.size(); ++i) {
     if (pfc::stringEqualsI_utf8(m_sources[i].path, resolved)) {
+      if (m_sources[i].binary != binary) {
+        throw exception_io_data("CUE Charset: conflicting FILE types for the same audio file");
+      }
       return i;
     }
   }
 
   audio_source source;
   source.path = resolved;
+  source.binary = binary;
   try {
-    input_helper::g_get_info(make_playable_location(resolved, 0), source.info, abort, /*p_from_redirect=*/true);
+    if (binary) {
+      input_helper_cue::get_info_binary(resolved, source.info, abort);
+    } else {
+      input_helper::g_get_info(make_playable_location(resolved, 0), source.info, abort, /*p_from_redirect=*/true);
+    }
+    abort.check();
     source.length = source.info.get_length();
     source.reachable = true;
   } catch (const exception_aborted&) {
@@ -270,33 +286,31 @@ void cue_charset_input::build_tracks(const char* cue_path, abort_callback& abort
   m_sources.clear();
   m_tracks.clear();
 
-  cue_parser::t_cue_entry_list entries;
+  std::vector<cue_track> entries;
   try {
-    cue_parser::parse(m_cuesheet_utf8, entries);
-  } catch (const exception_io_data& e) {
-    // Surface a clear, sanitized parse failure.
-    pfc::string8 message = "CUE Charset: ";
-    message += e.what();
-    throw exception_io_data(message);
+    entries = parse_cue_sheet(m_cuesheet_utf8, abort);
+  } catch (const cue_parser::exception_bad_cuesheet&) {
+    // SDK diagnostics can echo an arbitrarily long untrusted FILE type. Keep the
+    // public failure bounded; our own track-validation errors already carry a prefix.
+    throw exception_io_data("CUE Charset: invalid CUE sheet syntax");
   }
 
-  for (auto iter = entries.first(); iter.is_valid(); ++iter) {
+  for (const auto& entry : entries) {
     abort.check();
-    const cue_parser::cue_entry& entry = *iter;
     track_entry track;
-    track.number = entry.m_track_number;
-    track.start = entry.m_indexes.start();
-    track.source = intern_source(entry.m_file, cue_path, abort);
+    track.number = entry.number;
+    track.start = entry.start;
+    track.source = intern_source(entry.file, cue_path, entry.binary, abort);
     m_tracks.push_back(track);
   }
 
   // Compute each track's bounded decode length. A track ends where the next track in the same
   // audio file begins; the last track of a file decodes to the end of that file (length < 0).
   for (size_t i = 0; i < m_tracks.size(); ++i) {
+    abort.check();
     const bool next_same_file = (i + 1 < m_tracks.size()) && (m_tracks[i + 1].source == m_tracks[i].source);
     if (next_same_file) {
-      const double length = m_tracks[i + 1].start - m_tracks[i].start;
-      m_tracks[i].decode_length = (length > 0.0) ? length : -1.0;
+      m_tracks[i].decode_length = checked_track_length(m_tracks[i].start, m_tracks[i + 1].start);
     } else {
       m_tracks[i].decode_length = -1.0;
     }
@@ -324,13 +338,13 @@ t_uint32 cue_charset_input::get_subsong(unsigned p_index) {
 }
 
 void cue_charset_input::get_info(t_uint32 p_subsong, file_info& p_info, abort_callback& p_abort) {
-  (void)p_abort;
+  p_abort.check();
   const track_entry& track = track_for_subsong(p_subsong);
 
   p_info.reset();
 
   // Official parser fills album-level + track-level metadata for this track number.
-  cue_parser::parse_info(m_cuesheet_utf8, p_info, track.number);
+  read_cue_metadata(m_cuesheet_utf8, track.number, p_info, p_abort);
 
   // Duration: the bounded segment length, or (for the last track of a file) the remaining
   // duration of the referenced audio.
@@ -346,11 +360,12 @@ void cue_charset_input::get_info(t_uint32 p_subsong, file_info& p_info, abort_ca
   if (source.reachable) {
     copy_tech_info(p_info, source.info);
   }
+  p_abort.check();
 }
 
 t_filestats2 cue_charset_input::get_stats2(uint32_t p_flags, abort_callback& p_abort) {
   (void)p_flags;
-  (void)p_abort;
+  p_abort.check();
   return m_stats;
 }
 
@@ -372,7 +387,7 @@ void cue_charset_input::decode_initialize(t_uint32 p_subsong, unsigned p_flags, 
   // last track of a file is passed 0.0, not a negative value.
   const double segment_length = (track.decode_length > 0.0) ? track.decode_length : 0.0;
   m_decoder.open(service_ptr_t<file>(), make_playable_location(source.path, 0), flags, p_abort, track.start,
-                 segment_length, /*binary=*/false);
+                 segment_length, source.binary);
   m_decoding = true;
 }
 

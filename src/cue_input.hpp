@@ -56,6 +56,7 @@ class cue_charset_input : public input_stubs {
     file_info_impl info;    // technical info of the audio file (length, samplerate, ...)
     double length = -1.0;   // total audio duration, <0 if unknown
     bool reachable = false; // false if the referenced file could not be opened for info
+    bool binary = false;    // raw CD PCM, decoded by the SDK binary reader
   };
 
   struct track_entry {
@@ -65,7 +66,7 @@ class cue_charset_input : public input_stubs {
     double decode_length = -1.0; // bounded segment length; <0 means "decode to end of audio"
   };
 
-  size_t intern_source(const char* raw_file, const char* cue_path, abort_callback& abort);
+  size_t intern_source(const char* raw_file, const char* cue_path, bool binary, abort_callback& abort);
   const track_entry& track_for_subsong(t_uint32 subsong) const;
   void build_tracks(const char* cue_path, abort_callback& abort);
 

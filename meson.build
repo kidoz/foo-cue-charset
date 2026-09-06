@@ -281,6 +281,7 @@ if build_component
   component_sources = files(
     'src/component.cpp',
     'src/cue_input.cpp',
+    'src/cue_sheet.cpp',
     'src/config.cpp',
     'src/preferences.cpp',
   )
@@ -313,6 +314,28 @@ if build_component
     name_suffix: 'dll',
     install: false,
   )
+
+  # The SDK parser uses shared.dll from the player. Keep encoding tests independent
+  # and enable this additional suite only when an explicit runtime path is supplied.
+  foobar2000_path = get_option('foobar2000_path')
+  if foobar2000_path != ''
+    if not fs.exists(foobar2000_path / 'shared.dll')
+      error('foobar2000_path must contain shared.dll from a matching-architecture player installation')
+    endif
+    sdk_test = executable(
+      'test_cue_sheet',
+      files('tests/test_cue_sheet.cpp', 'src/cue_sheet.cpp'),
+      encoding_sources,
+      include_directories: src_inc,
+      dependencies: [catch2_dep, fb2k_sdk_dep, system_libs],
+      cpp_args: component_args + compile_defs + compat_args,
+    )
+    sdk_test_env = environment()
+    sdk_test_env.prepend('PATH', foobar2000_path)
+    test('test_cue_sheet', sdk_test, env: sdk_test_env)
+  else
+    message('SDK parser tests disabled; set -Dfoobar2000_path to the player directory to enable them')
+  endif
 endif
 
 # --- Developer tooling: format / tidy / package ---------------------------------------
@@ -320,6 +343,8 @@ format_files = [
   'src/component.cpp',
   'src/cue_input.cpp',
   'src/cue_input.hpp',
+  'src/cue_sheet.cpp',
+  'src/cue_sheet.hpp',
   'src/cue_input_register.cpp',
   'src/config.cpp',
   'src/config.hpp',
@@ -330,6 +355,7 @@ format_files = [
   'src/path_util.cpp',
   'src/path_util.hpp',
   'src/encoding/utf.cpp',
+  'src/encoding/abort.hpp',
   'src/encoding/utf.hpp',
   'src/encoding/decoder.cpp',
   'src/encoding/decoder.hpp',
@@ -337,6 +363,8 @@ format_files = [
   'tests/test_decoder.cpp',
   'tests/test_cue_text.cpp',
   'tests/test_path_util.cpp',
+  'tests/test_cue_sheet.cpp',
+  'tests/fixtures_cyrillic.hpp',
 ]
 
 format_list = '@("' + '", "'.join(format_files) + '")'
@@ -359,6 +387,7 @@ endif
 tidy_files = [
   'src/component.cpp',
   'src/cue_input.cpp',
+  'src/cue_sheet.cpp',
   'src/config.cpp',
   'src/preferences.cpp',
   'src/path_util.cpp',
@@ -369,6 +398,9 @@ tidy_files = [
   'tests/test_cue_text.cpp',
   'tests/test_path_util.cpp',
 ]
+if build_component and get_option('foobar2000_path') != ''
+  tidy_files += 'tests/test_cue_sheet.cpp'
+endif
 tidy_list = '@("' + '", "'.join(tidy_files) + '")'
 
 clang_tidy = find_program('clang-tidy', required: false)

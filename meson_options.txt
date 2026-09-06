@@ -11,3 +11,10 @@ option(
   value: true,
   description: 'Build the foobar2000 component DLL (requires the SDK). Disable to build/run only the SDK-independent encoding unit tests.',
 )
+
+option(
+  'foobar2000_path',
+  type: 'string',
+  value: '',
+  description: 'Optional foobar2000 installation directory containing shared.dll; enables SDK parser regression tests without launching the player.',
+)
