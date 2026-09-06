@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cstddef>
+#include <exception>
 #include <initializer_list>
 #include <span>
 #include <string>
@@ -122,4 +123,40 @@ TEST_CASE("utf16_to_utf8 rejects malformed UTF-16", "[utf][utf16]") {
 TEST_CASE("contains_nul detects embedded NUL", "[utf][nul]") {
   CHECK_FALSE(enc::contains_nul("hello"));
   CHECK(enc::contains_nul(std::string_view("a\0b", 3)));
+}
+
+TEST_CASE("Unicode sequences spanning polling boundaries remain intact", "[utf][abort]") {
+  std::vector<std::byte> utf8(enc::processing_chunk_bytes - 1, std::byte{0x41});
+  for (const auto b : bytes({0xF0, 0x9F, 0x98, 0x80})) {
+    utf8.push_back(b);
+  }
+  CHECK(enc::is_valid_utf8(utf8));
+
+  for (const bool big_endian : {false, true}) {
+    std::vector<std::byte> utf16(enc::processing_chunk_bytes - 2, std::byte{0x41});
+    const auto pair = big_endian ? bytes({0xD8, 0x3D, 0xDE, 0x00}) : bytes({0x3D, 0xD8, 0x00, 0xDE});
+    utf16.insert(utf16.end(), pair.begin(), pair.end());
+    std::string out;
+    REQUIRE(enc::utf16_to_utf8(utf16, big_endian, out));
+    CHECK(out.ends_with("\xF0\x9F\x98\x80"));
+  }
+}
+
+TEST_CASE("UTF conversion and NUL scanning can abort before finishing", "[utf][abort]") {
+  struct cancelled : std::exception {};
+  unsigned checks = 0;
+  const auto check = [&checks] {
+    if (++checks == 2) {
+      throw cancelled{};
+    }
+  };
+  std::vector<std::byte> input(enc::processing_chunk_bytes * 4, std::byte{0x41});
+  std::string out;
+  CHECK_THROWS_AS(enc::utf16_to_utf8(input, false, out, check), cancelled);
+  CHECK_FALSE(out.empty());
+  CHECK(out.size() < input.size());
+  checks = 0;
+  CHECK_THROWS_AS(enc::is_valid_utf8(input, check), cancelled);
+  checks = 0;
+  CHECK_THROWS_AS(enc::contains_nul(std::string(input.size(), 'A'), check), cancelled);
 }

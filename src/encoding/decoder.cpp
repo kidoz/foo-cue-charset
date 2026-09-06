@@ -2,6 +2,7 @@
 
 #include "encoding/utf.hpp"
 
+#include <algorithm>
 #include <climits>
 #include <cstdint>
 #include <optional>
@@ -42,20 +43,32 @@ constexpr UINT kCodePageIso8859_5 = 28595;
   return std::unexpected<decode_error>(decode_error{code, std::move(message)});
 }
 
-[[nodiscard]] std::string as_string(std::span<const std::byte> bytes) {
-  return std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+[[nodiscard]] std::string as_string(std::span<const std::byte> bytes, const abort_check& check_abort) {
+  poll_abort(check_abort);
+  std::string out;
+  out.reserve(bytes.size());
+  while (!bytes.empty()) {
+    const auto chunk = bytes.first(std::min(bytes.size(), processing_chunk_bytes));
+    out.append(reinterpret_cast<const char*>(chunk.data()), chunk.size());
+    bytes = bytes.subspan(chunk.size());
+    poll_abort(check_abort);
+  }
+  return out;
 }
 
-//! Converts a legacy single-byte code page to UTF-8 via Win32, validating every step.
-//! MB_ERR_INVALID_CHARS makes the conversion fail on bytes that are undefined in the page
-//! instead of silently substituting, satisfying the "never replace invalid text" rule.
-[[nodiscard]] std::expected<std::string, decode_error> legacy_to_utf8(std::span<const std::byte> bytes,
-                                                                      UINT code_page) {
+//! Converts a bounded chunk from one of the supported single-byte code pages.
+[[nodiscard]] std::expected<std::string, decode_error> legacy_chunk_to_utf8(std::span<const std::byte> bytes,
+                                                                            UINT code_page) {
   if (bytes.empty()) {
     return std::string{};
   }
   if (bytes.size() > static_cast<std::size_t>(INT_MAX)) {
     return make_error(decode_error_code::input_too_large, "CUE sheet too large to convert");
+  }
+  // Microsoft's CP1251 mapping leaves 0x98 undefined, but current Windows NLS maps it
+  // to U+0098 even with MB_ERR_INVALID_CHARS. The other supported pages define every byte.
+  if (code_page == kCodePageWindows1251 && std::ranges::find(bytes, std::byte{0x98}) != bytes.end()) {
+    return make_error(decode_error_code::conversion_failed, "undefined byte in Windows-1251 input");
   }
   const int in_len = static_cast<int>(bytes.size());
   const auto* in_ptr = reinterpret_cast<const char*>(bytes.data());
@@ -83,9 +96,28 @@ constexpr UINT kCodePageIso8859_5 = 28595;
   return out;
 }
 
+[[nodiscard]] std::expected<std::string, decode_error> legacy_to_utf8(std::span<const std::byte> bytes, UINT code_page,
+                                                                      const abort_check& check_abort) {
+  poll_abort(check_abort);
+  std::string out;
+  out.reserve(bytes.size());
+  while (!bytes.empty()) {
+    const auto chunk = bytes.first(std::min(bytes.size(), processing_chunk_bytes));
+    auto converted = legacy_chunk_to_utf8(chunk, code_page);
+    if (!converted) {
+      return std::unexpected(converted.error());
+    }
+    out.append(*converted);
+    bytes = bytes.subspan(chunk.size());
+    poll_abort(check_abort);
+  }
+  return out;
+}
+
 [[nodiscard]] std::expected<decode_result, decode_error> finalize(std::string utf8, text_encoding source, bool had_bom,
-                                                                  bool used_legacy_fallback) {
-  if (contains_nul(utf8)) {
+                                                                  bool used_legacy_fallback,
+                                                                  const abort_check& check_abort) {
+  if (contains_nul(utf8, check_abort)) {
     return make_error(decode_error_code::embedded_nul, "CUE sheet contains an embedded NUL character");
   }
   return decode_result{std::move(utf8), source, had_bom, used_legacy_fallback};
@@ -94,7 +126,8 @@ constexpr UINT kCodePageIso8859_5 = 28595;
 //! Decode the whole buffer as a specific encoding (no detection). Used by force mode and by
 //! the automatic legacy fallback. A leading BOM matching the target Unicode form is removed.
 [[nodiscard]] std::expected<decode_result, decode_error> decode_as(std::span<const std::byte> input, text_encoding enc,
-                                                                   bool used_legacy_fallback) {
+                                                                   bool used_legacy_fallback,
+                                                                   const abort_check& check_abort) {
   switch (enc) {
   case text_encoding::utf8: {
     auto body = input;
@@ -103,10 +136,10 @@ constexpr UINT kCodePageIso8859_5 = 28595;
       body = input.subspan(bom.length);
       had_bom = true;
     }
-    if (!is_valid_utf8(body)) {
+    if (!is_valid_utf8(body, check_abort)) {
       return make_error(decode_error_code::invalid_utf8, "input is not valid UTF-8");
     }
-    return finalize(as_string(body), text_encoding::utf8, had_bom, used_legacy_fallback);
+    return finalize(as_string(body, check_abort), text_encoding::utf8, had_bom, used_legacy_fallback, check_abort);
   }
   case text_encoding::utf16_le:
   case text_encoding::utf16_be: {
@@ -119,10 +152,10 @@ constexpr UINT kCodePageIso8859_5 = 28595;
       had_bom = true;
     }
     std::string utf8;
-    if (!utf16_to_utf8(body, big_endian, utf8)) {
+    if (!utf16_to_utf8(body, big_endian, utf8, check_abort)) {
       return make_error(decode_error_code::invalid_utf16, "input is not valid UTF-16");
     }
-    return finalize(std::move(utf8), enc, had_bom, used_legacy_fallback);
+    return finalize(std::move(utf8), enc, had_bom, used_legacy_fallback, check_abort);
   }
   case text_encoding::windows_1251:
   case text_encoding::koi8_r:
@@ -132,11 +165,11 @@ constexpr UINT kCodePageIso8859_5 = 28595;
     if (!code_page) {
       return make_error(decode_error_code::unsupported_encoding, "unsupported legacy encoding");
     }
-    auto converted = legacy_to_utf8(input, *code_page);
+    auto converted = legacy_to_utf8(input, *code_page, check_abort);
     if (!converted) {
       return std::unexpected(converted.error());
     }
-    return finalize(std::move(*converted), enc, false, used_legacy_fallback);
+    return finalize(std::move(*converted), enc, false, used_legacy_fallback, check_abort);
   }
   }
   return make_error(decode_error_code::unsupported_encoding, "unsupported encoding");
@@ -144,42 +177,46 @@ constexpr UINT kCodePageIso8859_5 = 28595;
 
 } // namespace
 
-std::expected<decode_result, decode_error> decode(std::span<const std::byte> input, const decode_options& options) {
+std::expected<decode_result, decode_error> decode(std::span<const std::byte> input, const decode_options& options,
+                                                  const abort_check& check_abort) {
+  poll_abort(check_abort);
   // Enforce the size cap before any allocation or processing.
   if (input.size() > options.maximum_input_bytes) {
     return make_error(decode_error_code::input_too_large, "external CUE exceeds the maximum allowed size");
   }
 
   if (options.mode == detection_mode::force_selected) {
-    return decode_as(input, options.selected_legacy_encoding, /*used_legacy_fallback=*/false);
+    return decode_as(input, options.selected_legacy_encoding, /*used_legacy_fallback=*/false, check_abort);
   }
 
   // Automatic mode: BOM first.
   const auto bom = detect_bom(input);
   if (bom.type == bom_type::utf8) {
     auto body = input.subspan(bom.length);
-    if (!is_valid_utf8(body)) {
+    if (!is_valid_utf8(body, check_abort)) {
       return make_error(decode_error_code::invalid_utf8, "UTF-8 BOM present but the body is not valid UTF-8");
     }
-    return finalize(as_string(body), text_encoding::utf8, /*had_bom=*/true, /*used_legacy_fallback=*/false);
+    return finalize(as_string(body, check_abort), text_encoding::utf8, /*had_bom=*/true,
+                    /*used_legacy_fallback=*/false, check_abort);
   }
   if (bom.type == bom_type::utf16_le || bom.type == bom_type::utf16_be) {
     const bool big_endian = bom.type == bom_type::utf16_be;
     const auto enc = big_endian ? text_encoding::utf16_be : text_encoding::utf16_le;
     std::string utf8;
-    if (!utf16_to_utf8(input.subspan(bom.length), big_endian, utf8)) {
+    if (!utf16_to_utf8(input.subspan(bom.length), big_endian, utf8, check_abort)) {
       return make_error(decode_error_code::invalid_utf16, "UTF-16 BOM present but the body is not valid UTF-16");
     }
-    return finalize(std::move(utf8), enc, /*had_bom=*/true, /*used_legacy_fallback=*/false);
+    return finalize(std::move(utf8), enc, /*had_bom=*/true, /*used_legacy_fallback=*/false, check_abort);
   }
 
   // No BOM: strict UTF-8 (pure ASCII validates as UTF-8) ...
-  if (is_valid_utf8(input)) {
-    return finalize(as_string(input), text_encoding::utf8, /*had_bom=*/false, /*used_legacy_fallback=*/false);
+  if (is_valid_utf8(input, check_abort)) {
+    return finalize(as_string(input, check_abort), text_encoding::utf8, /*had_bom=*/false,
+                    /*used_legacy_fallback=*/false, check_abort);
   }
 
   // ... otherwise fall back to the selected legacy encoding.
-  return decode_as(input, options.selected_legacy_encoding, /*used_legacy_fallback=*/true);
+  return decode_as(input, options.selected_legacy_encoding, /*used_legacy_fallback=*/true, check_abort);
 }
 
 const char* display_name(text_encoding enc) noexcept {

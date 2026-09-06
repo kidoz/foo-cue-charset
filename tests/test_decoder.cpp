@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cstddef>
+#include <exception>
 #include <initializer_list>
 #include <span>
 #include <string>
@@ -39,6 +40,12 @@ enc::decode_options automatic(enc::text_encoding fallback = enc::text_encoding::
 
 enc::decode_options forced(enc::text_encoding selected) {
   return enc::decode_options{enc::detection_mode::force_selected, selected, enc::default_maximum_input_bytes};
+}
+
+void decode_without_error(std::span<const std::byte> input, const enc::decode_options& options,
+                          const enc::abort_check& check_abort) {
+  const auto result = enc::decode(input, options, check_abort);
+  REQUIRE(result.has_value());
 }
 
 } // namespace
@@ -200,4 +207,80 @@ TEST_CASE("display_name and is_legacy_encoding are correct", "[decoder][meta]") 
   CHECK(enc::is_legacy_encoding(enc::text_encoding::iso_8859_5));
   CHECK_FALSE(enc::is_legacy_encoding(enc::text_encoding::utf8));
   CHECK_FALSE(enc::is_legacy_encoding(enc::text_encoding::utf16_le));
+}
+
+TEST_CASE("Undefined Windows-1251 bytes fail in automatic and forced modes", "[decoder][regression]") {
+  for (const auto mode : {enc::detection_mode::automatic, enc::detection_mode::force_selected}) {
+    auto input = bytes({'T', 'I', 'T', 'L', 'E', ' ', '"', 0x98, '"'});
+    const auto result = enc::decode(view(input), {mode, enc::text_encoding::windows_1251});
+    REQUIRE_FALSE(result.has_value());
+    CHECK(result.error().code == enc::decode_error_code::conversion_failed);
+  }
+}
+
+TEST_CASE("Byte 98 remains valid in other legacy pages and UTF-8", "[decoder][regression]") {
+  for (const auto encoding : {enc::text_encoding::koi8_r, enc::text_encoding::cp866, enc::text_encoding::iso_8859_5}) {
+    CHECK(enc::decode(view(bytes({0x98})), forced(encoding)).has_value());
+  }
+  const auto result = enc::decode(view(bytes({0xD0, 0x98})), automatic()); // U+0418
+  REQUIRE(result.has_value());
+  CHECK(result->utf8 == "\xD0\x98");
+}
+
+TEST_CASE("Legacy conversion validates every chunk", "[decoder][regression]") {
+  std::vector<std::byte> input(enc::processing_chunk_bytes + 1, std::byte{0xC0});
+  auto result = enc::decode(input, forced(enc::text_encoding::windows_1251));
+  REQUIRE(result.has_value());
+  std::string expected;
+  for (std::size_t i = 0; i < input.size(); ++i) {
+    expected += "\xD0\x90";
+  }
+  CHECK(result->utf8 == expected);
+  input.back() = std::byte{0x98};
+  result = enc::decode(input, forced(enc::text_encoding::windows_1251));
+  REQUIRE_FALSE(result.has_value());
+  CHECK(result.error().code == enc::decode_error_code::conversion_failed);
+}
+
+TEST_CASE("Every encoding path propagates cancellation during processing", "[decoder][abort]") {
+  struct cancelled : std::exception {};
+  for (const auto encoding : {
+           enc::text_encoding::utf8,
+           enc::text_encoding::utf16_le,
+           enc::text_encoding::utf16_be,
+           enc::text_encoding::windows_1251,
+           enc::text_encoding::koi8_r,
+           enc::text_encoding::cp866,
+           enc::text_encoding::iso_8859_5,
+       }) {
+    // 0x4141 is a valid UTF-16 scalar in either byte order; all other paths accept ASCII A.
+    std::vector<std::byte> input(enc::processing_chunk_bytes * 8, std::byte{0x41});
+    unsigned checks = 0;
+    const auto check = [&checks] {
+      if (++checks == 4) {
+        throw cancelled{};
+      }
+    };
+    CHECK_THROWS_AS(decode_without_error(input, forced(encoding), check), cancelled);
+    CHECK(checks == 4);
+  }
+}
+
+TEST_CASE("Automatic detection and empty inputs propagate cancellation", "[decoder][abort]") {
+  struct cancelled : std::exception {};
+  const enc::abort_check cancelled_now = [] { throw cancelled{}; };
+  CHECK_THROWS_AS(decode_without_error({}, automatic(), cancelled_now), cancelled);
+  for (const auto& prefix :
+       {bytes({0xEF, 0xBB, 0xBF}), bytes({0xFF, 0xFE}), bytes({0xFE, 0xFF}), bytes({0xC0, 0xC0})}) {
+    auto input = prefix;
+    input.insert(input.end(), enc::processing_chunk_bytes * 8, std::byte{0x41});
+    unsigned checks = 0;
+    CHECK_THROWS_AS(decode_without_error(input, automatic(),
+                                         [&checks] {
+                                           if (++checks == 4) {
+                                             throw cancelled{};
+                                           }
+                                         }),
+                    cancelled);
+  }
 }

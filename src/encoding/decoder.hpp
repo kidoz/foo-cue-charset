@@ -1,5 +1,7 @@
 #pragma once
 
+#include "encoding/abort.hpp"
+
 // Public API of the SDK-independent encoding module. Converts the raw bytes of an external
 // CUE sheet to UTF-8 according to an explicit, reproducible policy. No <windows.h> here so
 // the header stays usable from plain-C++ unit tests; the Win32 code-page work lives in
@@ -67,8 +69,9 @@ struct decode_error {
 
 //! Converts the whole input to UTF-8 (BOM removed) following the configured policy.
 //! On success the result's utf8 string is BOM-free and contains no embedded NUL.
-[[nodiscard]] std::expected<decode_result, decode_error> decode(std::span<const std::byte> input,
-                                                                const decode_options& options);
+//! check_abort is polled during processing; its exceptions are never mapped to decode errors.
+[[nodiscard]] std::expected<decode_result, decode_error>
+decode(std::span<const std::byte> input, const decode_options& options, const abort_check& check_abort = {});
 
 //! Human-readable name for UI / Console logging, e.g. "Windows-1251". Never null.
 [[nodiscard]] const char* display_name(text_encoding enc) noexcept;

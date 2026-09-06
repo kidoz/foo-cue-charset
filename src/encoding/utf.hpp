@@ -1,5 +1,7 @@
 #pragma once
 
+#include "encoding/abort.hpp"
+
 // SDK-independent, Windows-independent Unicode primitives for the CUE Charset component.
 // Keep this header free of <windows.h> and foobar2000 includes so the encoding module can
 // be unit-tested as plain C++.
@@ -30,16 +32,17 @@ struct bom_info {
 //! Strict UTF-8 validation. Rejects overlong encodings, encoded surrogate values
 //! (U+D800..U+DFFF), scalar values above U+10FFFF, isolated continuation bytes, and
 //! truncated multibyte sequences. Pure ASCII and the empty buffer are valid.
-[[nodiscard]] bool is_valid_utf8(std::span<const std::byte> bytes) noexcept;
+[[nodiscard]] bool is_valid_utf8(std::span<const std::byte> bytes, const abort_check& check_abort = {});
 
 //! True if the text contains an embedded NUL (U+0000).
-[[nodiscard]] bool contains_nul(std::string_view text) noexcept;
+[[nodiscard]] bool contains_nul(std::string_view text, const abort_check& check_abort = {});
 
 //! Validating UTF-16 -> UTF-8 conversion. Rejects odd-length input, isolated high or low
 //! surrogates, and truncated surrogate pairs. Never substitutes U+FFFD or '?'.
 //! @param big_endian interpret each code unit as big-endian when true, little-endian otherwise.
-//! @param out receives the UTF-8 result only on success; cleared and rebuilt each call.
+//! @param out cleared and rebuilt each call; may contain a partial result on failure or abort.
 //! @returns true on success, false if the input is not valid UTF-16.
-[[nodiscard]] bool utf16_to_utf8(std::span<const std::byte> bytes, bool big_endian, std::string& out);
+[[nodiscard]] bool utf16_to_utf8(std::span<const std::byte> bytes, bool big_endian, std::string& out,
+                                 const abort_check& check_abort = {});
 
 } // namespace foo_cue_charset::encoding
