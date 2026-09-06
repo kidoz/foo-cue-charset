@@ -15,7 +15,7 @@
 
 namespace foo_cue_charset::encoding {
 
-//! Encodings supported in v0.1.0. The four legacy single-byte pages are the ones offered in
+//! Supported encodings. The four legacy single-byte pages are the ones offered in
 //! the preferences dropdown; the Unicode forms are produced by detection.
 enum class text_encoding : std::uint8_t {
   utf8,

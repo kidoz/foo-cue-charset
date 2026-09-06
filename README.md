@@ -3,7 +3,7 @@
 [![Language: C++23](https://img.shields.io/badge/language-C%2B%2B23-00599C.svg)](https://isocpp.org/)
 [![Build system: Meson](https://img.shields.io/badge/build%20system-Meson-00ADD8.svg)](https://mesonbuild.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version: 0.1.0](https://img.shields.io/badge/version-0.1.0-informational.svg)](meson.build)
+[![Version: 0.2.0](https://img.shields.io/badge/version-0.2.0-informational.svg)](meson.build)
 
 **CUE Charset** is a foobar2000 component for Windows x64 that reads external `.cue` sheets saved
 in legacy Cyrillic (and other single-byte) encodings. It converts the CUE text — including the
@@ -36,7 +36,7 @@ The component registers a redirecting **input** for the `.cue` extension. When f
 
 Reading is transparent and read-only: opening or playing a CUE never modifies the original file.
 
-## Supported encodings (v0.1.0)
+## Supported encodings
 
 - ASCII
 - UTF-8 without BOM
@@ -192,7 +192,7 @@ playback, decoder priority, or preference persistence. See also the
 
 - The four legacy encodings are not auto-distinguished. In Automatic mode, a non-Unicode CUE is
   always decoded with the one configured fallback; pick the right one or use Force mode.
-- Read-only in v0.1.0: the component never writes tags or rewrites the CUE. Tag-write requests
+- Read-only: the component never writes tags or rewrites the CUE. Tag-write requests
   return foobar2000's normal "unsupported" result.
 - Windows x64 only. Uses Win32 code-page conversion APIs (no ICU/iconv runtime dependency).
 - Consecutive tracks within one audio source must have strictly increasing `INDEX 01` timestamps;

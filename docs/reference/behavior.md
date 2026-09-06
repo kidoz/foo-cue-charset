@@ -8,7 +8,7 @@ Source of truth: [configuration](../../src/config.hpp), [decoder](../../src/enco
 | Item | Value |
 | --- | --- |
 | Component name | CUE Charset |
-| Version | 0.1.0 |
+| Version | 0.2.0 |
 | Target player | foobar2000 2.25+ x64 on Windows |
 | DLL | `foo_cue_charset.dll` |
 | Package | `foo_cue_charset.fb2k-component`, containing the DLL only |
