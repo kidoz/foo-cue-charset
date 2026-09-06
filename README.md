@@ -93,8 +93,8 @@ Settings persist across restarts. "Reset page to defaults" restores the values a
 
 ## Decoder priority
 
-The component is registered as a normal-merit input for `.cue`, so on a default install it is
-tried before the built-in CUE handler and wins. If your setup ever resolves `.cue` to the built-in
+The component is registered as a normal-merit input for `.cue`. The SDK places newly discovered
+normal-merit inputs at the beginning of the decoder list. If your setup resolves `.cue` to the built-in
 handler first, raise this component in:
 
 ```text
@@ -169,6 +169,19 @@ Other recipes: `just build-debug`, `just build-release`, `just test`, `just form
 The SDK-independent encoding module (`src/encoding/`) builds and unit-tests as plain C++ without
 the SDK; to run only those tests, configure with `-Dbuild_component=false`.
 
+Additional SDK parser regression tests cover track boundaries, `BINARY` file types, metadata,
+and cancellation. They use `shared.dll` from an installed player without launching it:
+
+```powershell
+meson configure build '-Dfoobar2000_path=C:/Program Files/foobar2000'
+just test
+```
+
+The runtime must match the build architecture. These tests supplement the
+[manual player test plan](docs/manual-test-plan.md); they do not verify player registration,
+playback, decoder priority, or preference persistence. See also the
+[SDK feasibility evidence](docs/feasibility.md) and [architecture](docs/architecture.md).
+
 ## Limitations
 
 - The four legacy encodings are not auto-distinguished. In Automatic mode, a non-Unicode CUE is
@@ -176,6 +189,12 @@ the SDK; to run only those tests, configure with `-Dbuild_component=false`.
 - Read-only in v0.1.0: the component never writes tags or rewrites the CUE. Tag-write requests
   return foobar2000's normal "unsupported" result.
 - Windows x64 only. Uses Win32 code-page conversion APIs (no ICU/iconv runtime dependency).
+- Consecutive tracks within one audio source must have strictly increasing `INDEX 01` timestamps;
+  equal or decreasing timestamps are rejected.
+- `FILE ... BINARY` images use the SDK's raw CD PCM reader and require the exact referenced file.
+  Extension substitution is disabled for binary images.
+- Conversion checks cancellation periodically. The SDK CUE parser has no cancellation hook;
+  cancellation is checked immediately before and after each synchronous parser call.
 
 ## Troubleshooting
 
