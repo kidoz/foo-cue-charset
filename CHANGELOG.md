@@ -18,7 +18,8 @@ All notable changes to this project are documented here. The format is based on
 
 - Regression tests for malformed boundaries, binary types, undefined bytes, and cancellation.
   SDK parser tests can be enabled with the `foobar2000_path` Meson option.
-- Versioned architecture, SDK feasibility evidence, and manual test plan under `docs/`.
+- Diátaxis documentation under `docs/`: a guided tutorial, task guides, technical reference,
+  design explanations, and a player acceptance matrix.
 - Include the Cyrillic fixture header in the formatting check.
 - Treat enabled clang-tidy diagnostics as errors and resolve the reported project warnings.
 
@@ -56,7 +57,7 @@ Initial release.
   foobar2000's normal "unsupported" result.
 - Windows x64 only.
 - Interactive foobar2000 behaviors are covered by the manual test plan
-  (`docs/manual-test-plan.md`) and have not been executed in an automated
+  (`docs/reference/player-test-matrix.md`) and have not been executed in an automated
   environment.
 
 [0.1.0]: https://github.com/kidoz/foo-cue-charset/releases/tag/v0.1.0

@@ -146,7 +146,7 @@ fb2k_sdk_sources = files(
 #  - cue_parser / cue_creator / cuesheet_index_list: the official CUE grammar parser.
 #  - input_helpers + input_helper_cue: open the referenced audio file through normal
 #    decoder services and decode a [start, length] track segment (recursion-safe redirect).
-# Recorded in docs/architecture.md. Do not add helper sources that are not actually linked.
+# Recorded in docs/reference/sdk-api.md. Do not add helper sources that are not actually linked.
 fb2k_helper_sources = files(
   'foobar2000/helpers/cue_parser.cpp',
   'foobar2000/helpers/cue_creator.cpp',

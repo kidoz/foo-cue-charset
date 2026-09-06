@@ -16,6 +16,12 @@ audio filename.
 > mojibake (or fail to find a Cyrillic-named audio file). Installing it does not change how valid
 > UTF-8 CUE sheets behave.
 
+## Documentation
+
+Start at the [documentation home](docs/README.md), organized around Diátaxis:
+[tutorials](docs/README.md#tutorials), [how-to guides](docs/README.md#how-to-guides),
+[reference](docs/README.md#reference), and [explanation](docs/README.md#explanation).
+
 ## How it works
 
 The component registers a redirecting **input** for the `.cue` extension. When foobar2000 opens a
@@ -158,7 +164,7 @@ Catch2 v3 is fetched automatically from Meson WrapDB (`subprojects/catch2.wrap`)
 
 ```powershell
 just setup      # resolve SDK/WTL/Catch2 wraps and configure the build
-just check      # build with /W4 /WX, verify formatting, run unit tests
+just check      # build with /W4 /WX, verify formatting, run clang-tidy and unit tests
 just release    # build Release, run tests, produce foo_cue_charset.fb2k-component
 ```
 
@@ -178,9 +184,9 @@ just test
 ```
 
 The runtime must match the build architecture. These tests supplement the
-[manual player test plan](docs/manual-test-plan.md); they do not verify player registration,
+[manual player test plan](docs/how-to/verify-in-player.md); they do not verify player registration,
 playback, decoder priority, or preference persistence. See also the
-[SDK feasibility evidence](docs/feasibility.md) and [architecture](docs/architecture.md).
+[SDK feasibility evidence](docs/explanation/sdk-integration.md) and [architecture](docs/explanation/architecture.md).
 
 ## Limitations
 
