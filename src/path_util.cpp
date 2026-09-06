@@ -9,7 +9,7 @@ constexpr std::string_view kSeparators = "\\/";
 } // namespace
 
 bool is_absolute_reference(std::string_view path) noexcept {
-  if (path.starts_with("\\\\") || path.starts_with("/") || path.starts_with("\\")) {
+  if (path.starts_with('/') || path.starts_with('\\')) {
     return true; // UNC or rooted path
   }
   if (path.size() >= 2 && path[1] == ':') {

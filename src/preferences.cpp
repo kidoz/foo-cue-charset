@@ -26,9 +26,10 @@ class prefs_instance : public preferences_page_instance {
   }
 
   t_uint32 get_state() override {
-    t_uint32 state = preferences_state::resettable | preferences_state::dark_mode_supported;
+    t_uint32 state = static_cast<t_uint32>(preferences_state::resettable) |
+                     static_cast<t_uint32>(preferences_state::dark_mode_supported);
     if (has_changes()) {
-      state |= preferences_state::changed;
+      state |= static_cast<t_uint32>(preferences_state::changed);
     }
     return state;
   }

@@ -53,7 +53,11 @@ Checks: >
 # Excludes subprojects/Catch2-*/ and the vendored SDK from the analysis net.
 HeaderFilterRegex: '\.\.[/\\](src|tests)[/\\]'
 FormatStyle: file
-WarningsAsErrors: ''
+WarningsAsErrors: '*'
 CheckOptions:
+  # clang-format may put all array elements on one line after moving the braces.
+  # Preserve an existing trailing comma there to avoid a format/tidy rewrite cycle.
+  - key: readability-trailing-comma.SingleLineCommaPolicy
+    value: Ignore
   - key: readability-identifier-naming.NamespaceCase
     value: lower_case

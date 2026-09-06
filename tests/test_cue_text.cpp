@@ -111,8 +111,11 @@ bool has_replacement_chars(const std::string& s) {
 }
 
 enc::decode_options automatic() {
-  return enc::decode_options{enc::detection_mode::automatic, enc::text_encoding::windows_1251,
-                             enc::default_maximum_input_bytes};
+  return enc::decode_options{
+      enc::detection_mode::automatic,
+      enc::text_encoding::windows_1251,
+      enc::default_maximum_input_bytes,
+  };
 }
 
 } // namespace
@@ -175,8 +178,11 @@ TEST_CASE("A UTF-8 CUE round-trips unchanged in automatic mode", "[cue][automati
 TEST_CASE("A malformed forced-UTF-8 CUE fails with a typed error, not an exception", "[cue][malformed]") {
   const std::string legacy = build_cue<true>("\r\n"); // Windows-1251 bytes, invalid as UTF-8
   // Forcing UTF-8 on legacy bytes must return an error value (std::expected), never throw.
-  const auto r = enc::decode(as_bytes(legacy), {enc::detection_mode::force_selected, enc::text_encoding::utf8,
-                                                enc::default_maximum_input_bytes});
+  const auto r = enc::decode(as_bytes(legacy), {
+                                                   enc::detection_mode::force_selected,
+                                                   enc::text_encoding::utf8,
+                                                   enc::default_maximum_input_bytes,
+                                               });
   REQUIRE_FALSE(r.has_value());
   CHECK(r.error().code == enc::decode_error_code::invalid_utf8);
 }
