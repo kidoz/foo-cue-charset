@@ -68,6 +68,28 @@ TEST_CASE("The same image cannot switch between binary and decoded audio", "[sdk
   CHECK_THROWS_AS(parse_cue_sheet(cue.c_str(), abort), exception_io_data);
 }
 
+TEST_CASE("Interleaved FILE blocks cannot hide a mode switch or decreasing indexes", "[sdk][cue][regression]") {
+  abort_callback_dummy abort;
+  // Track 04 returns to image.bin after an unrelated FILE block: the adjacent track references
+  // a different file, so only a non-adjacent same-file check catches these.
+  const std::string decreasing = std::string(kCue) + "FILE \"song.flac\" WAVE\nTRACK 03 AUDIO\nINDEX 01 00:00:00\n"
+                                                     "FILE \"image.bin\" BINARY\nTRACK 04 AUDIO\nINDEX 01 00:20:00\n";
+  CHECK_THROWS_AS(parse_cue_sheet(decreasing.c_str(), abort), exception_io_data);
+  const std::string mode_switch = std::string(kCue) + "FILE \"song.flac\" WAVE\nTRACK 03 AUDIO\nINDEX 01 00:00:00\n"
+                                                      "FILE \"image.bin\" WAVE\nTRACK 04 AUDIO\nINDEX 01 01:00:00\n";
+  CHECK_THROWS_AS(parse_cue_sheet(mode_switch.c_str(), abort), exception_io_data);
+}
+
+TEST_CASE("Interleaved FILE blocks with strictly increasing indexes are accepted", "[sdk][cue]") {
+  abort_callback_dummy abort;
+  const std::string cue = std::string(kCue) + "FILE \"song.flac\" WAVE\nTRACK 03 AUDIO\nINDEX 01 00:00:00\n"
+                                              "FILE \"image.bin\" BINARY\nTRACK 04 AUDIO\nINDEX 01 01:00:00\n";
+  const auto tracks = parse_cue_sheet(cue.c_str(), abort);
+  REQUIRE(tracks.size() == 4);
+  CHECK(tracks[3].binary);
+  CHECK(tracks[3].start == 60.0);
+}
+
 TEST_CASE("SDK metadata remains intact", "[sdk][cue]") {
   abort_callback_dummy abort;
   file_info_impl info;

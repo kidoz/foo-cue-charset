@@ -19,7 +19,7 @@ struct cue_track {
 std::vector<cue_track> parse_cue_sheet(const char* text, abort_callback& abort);
 void read_cue_metadata(const char* text, unsigned number, file_info& info, abort_callback& abort);
 
-//! Only terminal tracks may use the "to EOF" sentinel. Adjacent tracks in the same
+//! Only terminal tracks may use the "to EOF" sentinel. Successive tracks referencing the same
 //! source must have strictly increasing starts, including after path resolution.
 double checked_track_length(double start, double next_start);
 

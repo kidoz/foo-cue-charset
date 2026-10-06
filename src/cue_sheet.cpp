@@ -27,11 +27,18 @@ std::vector<cue_track> parse_cue_sheet(const char* text, abort_callback& abort) 
     track.file = entry.m_file;
     track.binary = pfc::stringEqualsI_ascii(entry.m_fileType, "BINARY");
     track.start = entry.m_indexes.start();
-    if (!tracks.empty() && pfc::stringEqualsI_utf8(tracks.back().file, track.file)) {
-      if (tracks.back().binary != track.binary) {
-        throw exception_io_data("CUE Charset: conflicting FILE types for the same audio file");
+    // Validate against the most recent previous track referencing the same file, wherever it
+    // appears in the sheet — not only the adjacent one — so interleaved FILE blocks cannot
+    // smuggle in non-increasing indexes or a binary/decoded mode switch. Transitivity of the
+    // strict ordering makes the most recent occurrence the only one that needs checking.
+    for (auto it = tracks.rbegin(); it != tracks.rend(); ++it) {
+      if (pfc::stringEqualsI_utf8(it->file, track.file)) {
+        if (it->binary != track.binary) {
+          throw exception_io_data("CUE Charset: conflicting FILE types for the same audio file");
+        }
+        checked_track_length(it->start, track.start);
+        break;
       }
-      checked_track_length(tracks.back().start, track.start);
     }
     tracks.push_back(std::move(track));
   }
