@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Validate track ordering and `BINARY`/decoded consistency against the most recent previous
+  track referencing the same file, not only the adjacent one, so interleaved `FILE` blocks
+  cannot hide decreasing indexes or a mode switch. Bounded decode lengths now also use the
+  next same-source track anywhere later in the sheet.
+- Fail preferences page creation cleanly if the dialog cannot be created.
+
+### Changed
+
+- Remove dead decoder state, a theoretical size-budget overflow in the bounded CUE reader,
+  and a duplicate `/W4` flag already implied by `warning_level=3`.
+
 ## [0.2.0] - 2026-09-06
 
 ### Fixed
