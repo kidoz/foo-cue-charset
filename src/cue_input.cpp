@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <limits>
 #include <span>
 #include <string>
 #include <vector>
@@ -139,6 +140,8 @@ pfc::string8 find_existing_reference_variant(const pfc::string8& resolved, bool 
 // so an oversized or unknown-size CUE is rejected before a large allocation. This is the guarantee;
 // open() also does a fast get_size() pre-check when the size is known.
 std::vector<std::byte> read_cue_bytes(const service_ptr_t<file>& handle, size_t max_bytes, abort_callback& abort) {
+  // Clamp so the max_bytes + 1 budget below cannot wrap even if a caller passes an unbounded limit.
+  max_bytes = std::min(max_bytes, std::numeric_limits<size_t>::max() - 1);
   std::vector<std::byte> out;
   constexpr size_t chunk_size = size_t{16} * 1024;
   std::byte chunk[chunk_size];
@@ -398,7 +401,6 @@ void cue_charset_input::decode_initialize(t_uint32 p_subsong, unsigned p_flags, 
   const double segment_length = (track.decode_length > 0.0) ? track.decode_length : 0.0;
   m_decoder.open(service_ptr_t<file>(), make_playable_location(source.path, 0), flags, p_abort, track.start,
                  segment_length, source.binary);
-  m_decoding = true;
 }
 
 bool cue_charset_input::decode_run(audio_chunk& p_chunk, abort_callback& p_abort) {

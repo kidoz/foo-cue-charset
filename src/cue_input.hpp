@@ -77,7 +77,6 @@ class cue_charset_input : public input_stubs {
   std::vector<track_entry> m_tracks;
 
   input_helper_cue m_decoder;
-  bool m_decoding = false;
 };
 
 } // namespace foo_cue_charset
