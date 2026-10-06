@@ -20,10 +20,11 @@ endif
 
 is_msvc = cpp.get_id() == 'msvc'
 # Component-owned code: strict warnings, warnings-as-errors, conforming preprocessor.
-# /external:anglebrackets + /external:W0 keep the strict /W4 /WX net on our own ("...")
-# sources while silencing warnings from angle-bracket-included third-party headers (the
-# foobar2000 SDK, WTL, Windows, Catch2), including those surfaced by SDK template instantiation.
-component_args = is_msvc ? ['/W4', '/WX', '/permissive-', '/EHsc', '/utf-8', '/external:anglebrackets', '/external:W0'] : ['-Wall', '-Wextra', '-Wpedantic', '-Werror']
+# warning_level=3 already supplies /W4 (-Wall for GCC-style compilers); /external:anglebrackets
+# + /external:W0 keep the strict /W4 /WX net on our own ("...") sources while silencing warnings
+# from angle-bracket-included third-party headers (the foobar2000 SDK, WTL, Windows, Catch2),
+# including those surfaced by SDK template instantiation.
+component_args = is_msvc ? ['/WX', '/permissive-', '/EHsc', '/utf-8', '/external:anglebrackets', '/external:W0'] : ['-Wall', '-Wextra', '-Wpedantic', '-Werror']
 # Control Flow Guard for the distributed DLL; needs both compile and link flags.
 component_hardening_args = is_msvc ? ['/guard:cf'] : []
 component_hardening_link_args = is_msvc ? ['/guard:cf'] : []
