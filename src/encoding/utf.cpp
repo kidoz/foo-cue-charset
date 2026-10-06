@@ -140,7 +140,7 @@ bool utf16_to_utf8(std::span<const std::byte> bytes, bool big_endian, std::strin
   auto read_unit = [&](std::size_t unit_index) -> std::uint32_t {
     const std::uint32_t b0 = byte_value(bytes[unit_index * 2]);
     const std::uint32_t b1 = byte_value(bytes[(unit_index * 2) + 1]);
-    return big_endian ? ((static_cast<std::uint32_t>(b0) << 8U) | b1) : ((static_cast<std::uint32_t>(b1) << 8U) | b0);
+    return big_endian ? ((b0 << 8U) | b1) : ((b1 << 8U) | b0);
   };
 
   std::size_t last_check = 0;

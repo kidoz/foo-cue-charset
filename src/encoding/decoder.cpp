@@ -124,7 +124,9 @@ constexpr UINT kCodePageIso8859_5 = 28595;
 }
 
 //! Decode the whole buffer as a specific encoding (no detection). Used by force mode and by
-//! the automatic legacy fallback. A leading BOM matching the target Unicode form is removed.
+//! the automatic legacy fallback. For the Unicode forms, a leading BOM matching the target
+//! encoding is removed. Legacy single-byte pages have no BOM concept, so their bytes are
+//! converted verbatim (a forced UTF-8 BOM becomes its legacy character sequence).
 [[nodiscard]] std::expected<decode_result, decode_error> decode_as(std::span<const std::byte> input, text_encoding enc,
                                                                    bool used_legacy_fallback,
                                                                    const abort_check& check_abort) {
