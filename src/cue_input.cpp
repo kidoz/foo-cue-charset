@@ -305,12 +305,22 @@ void cue_charset_input::build_tracks(const char* cue_path, abort_callback& abort
   }
 
   // Compute each track's bounded decode length. A track ends where the next track in the same
-  // audio file begins; the last track of a file decodes to the end of that file (length < 0).
+  // audio file begins — the next one anywhere later in the sheet, not only the adjacent entry,
+  // so interleaved FILE blocks are bounded correctly. The last track of a file decodes to the
+  // end of that file (length < 0).
   for (size_t i = 0; i < m_tracks.size(); ++i) {
     abort.check();
-    const bool next_same_file = (i + 1 < m_tracks.size()) && (m_tracks[i + 1].source == m_tracks[i].source);
-    if (next_same_file) {
-      m_tracks[i].decode_length = checked_track_length(m_tracks[i].start, m_tracks[i + 1].start);
+    size_t next_same_file = m_tracks.size();
+    for (size_t j = i + 1; j < m_tracks.size(); ++j) {
+      if (m_tracks[j].source == m_tracks[i].source) {
+        next_same_file = j;
+        break;
+      }
+    }
+    if (next_same_file < m_tracks.size()) {
+      // Also validates ordering after path resolution: two distinct FILE strings can resolve
+      // to the same source, a case parse_cue_sheet cannot see.
+      m_tracks[i].decode_length = checked_track_length(m_tracks[i].start, m_tracks[next_same_file].start);
     } else {
       m_tracks[i].decode_length = -1.0;
     }
