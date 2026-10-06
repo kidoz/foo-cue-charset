@@ -23,6 +23,9 @@ class prefs_instance : public preferences_page_instance {
     m_callback = callback;
     m_wnd = CreateDialogParamW(core_api::get_my_instance(), MAKEINTRESOURCEW(IDD_PREFERENCES), parent, dialog_proc,
                                reinterpret_cast<LPARAM>(this));
+    if (m_wnd == nullptr) {
+      throw exception_win32(GetLastError());
+    }
   }
 
   t_uint32 get_state() override {
