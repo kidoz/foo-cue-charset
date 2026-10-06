@@ -1,7 +1,7 @@
 project(
   'foo_cue_charset',
   'cpp',
-  version: '0.2.0',
+  version: '0.3.0',
   license: 'MIT',
   default_options: [
     'cpp_std=c++latest',

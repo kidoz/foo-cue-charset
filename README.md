@@ -3,7 +3,7 @@
 [![Language: C++23](https://img.shields.io/badge/language-C%2B%2B23-00599C.svg)](https://isocpp.org/)
 [![Build system: Meson](https://img.shields.io/badge/build%20system-Meson-00ADD8.svg)](https://mesonbuild.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version: 0.2.0](https://img.shields.io/badge/version-0.2.0-informational.svg)](meson.build)
+[![Version: 0.3.0](https://img.shields.io/badge/version-0.3.0-informational.svg)](meson.build)
 
 **CUE Charset** is a foobar2000 component for Windows x64 that reads external `.cue` sheets saved
 in legacy Cyrillic (and other single-byte) encodings. It converts the CUE text — including the
